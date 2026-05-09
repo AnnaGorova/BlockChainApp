@@ -17,7 +17,7 @@ namespace BlockChainApp.Services
                 transactionData += transaction.ToRawString();
             }
 
-            string blockData = $"{block.Index}{block.Timestamp.ToString("o")}{transactionData}{block.PrevHash}{block.Nonce} {block.Author}";
+            string blockData = $"{block.Index}{block.Timestamp.ToString("o")}{transactionData}{block.PrevHash}{block.Nonce}{block.Author}";
             using (var sha256 = System.Security.Cryptography.SHA256.Create())
             {
                 byte[] inputBytes = Encoding.UTF8.GetBytes(blockData);

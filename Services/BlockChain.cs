@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.Design;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+
 using BlockChainApp.Models;
 
 namespace BlockChainApp.Services
@@ -25,19 +28,29 @@ namespace BlockChainApp.Services
         private readonly List<Transaction> _pendingTransaction = new List<Transaction>();
 
 
+       
+
         private readonly WalletService _walletService = new WalletService();
 
         
 
         private readonly int minerReward = 50;
-         
+
+        private readonly string _storageFilePath = "blockchain_data.dat";
+        public Dictionary<string, decimal> Balances { get; set; } = new Dictionary<string, decimal>();
+
         public BlockChain(int difаicalty)
         {
             Chain = new List<Block>();
             _hashingService = new HashingService();
             _mainingService = new MainingService(_hashingService);
             this.Difficulty = difаicalty;
-            CreateGenesisBlock();
+            //CreateGenesisBlock();
+            if (Chain.Count == 0)
+            {
+                CreateGenesisBlock();
+            }
+
         }
 
         // Метод для створення генезис-блоку 
@@ -53,7 +66,9 @@ namespace BlockChainApp.Services
             _mainingService.MineBlock(genesissBlock, Difficulty);
             
             Chain.Add(genesissBlock);
-
+            
+            this.AppyBlockToState(genesissBlock);
+            this.AppendBlockToFile(genesissBlock);
         }
 
         //Метод для додавання нового блоку до блокчейну
@@ -101,8 +116,22 @@ namespace BlockChainApp.Services
                 //    if (senderBalance < transaction.Amount + transaction.Fee);
                 //}
 
-                // 2. Перевірка балансу 
-                decimal balance = GetBalance(transaction.From);
+                // 2. Перевірка балансу  через словник State
+                //decimal balance = GetBalance(transaction.From);
+                // отримуємо баланс з кешу State
+                decimal balance = Balances.ContainsKey(transaction.From) 
+                    ? Balances[transaction.From] 
+                    : 0;
+
+                //віднімаю суму від транзакій які не були підтверджені в Mempool
+                foreach(var tx in _pendingTransaction)
+                {
+                    if (tx.From == transaction.From)
+                    {
+                        balance -= (tx.Amount + tx.Fee);
+                    }
+                }
+
                 decimal requireAmount = transaction.Amount + transaction.Fee;
 
                 if (balance < requireAmount)
@@ -112,7 +141,7 @@ namespace BlockChainApp.Services
                     return false;
                 }
 
-                Console.WriteLine($"Транзакція валідна - Баланс: {balance} > Потрібно: {requireAmount}");
+                Console.WriteLine($"Транзакція валідна - Баланс: {balance} >= Потрібно: {requireAmount}");
             }
 
             // Додаємо в mempool
@@ -229,7 +258,9 @@ namespace BlockChainApp.Services
             block.Transactions.Add(minerRewarTX);
             _mainingService.MineBlock(block, Difficulty);
             Chain.Add(block);
-
+           
+            this.AppyBlockToState(block);
+            this.AppendBlockToFile(block);
             _pendingTransaction.RemoveAll(t => transactionToInclude.Contains(t));
             if (block.Index % _adjustmentIntervsl == 0)
             {
@@ -304,28 +335,46 @@ namespace BlockChainApp.Services
 
         public decimal GetBalance(string address)
         {
-            decimal balance = 0;
 
-            // Преревіряємо всі блоки в ланцюгу
-            foreach (var block in Chain)
+            var balance = Balances.ContainsKey(address) ? Balances[address] : 0;
+
+            foreach (var tx in _pendingTransaction)
             {
-
-                foreach (var transaction in block.Transactions)
+                if (tx.From == address)
                 {
-                    // якщо адреса отримувача - додаємо суму
-                    if (transaction.To == address)
-                    {
-                        balance += transaction.Amount;
-                    }
-
-                    // якщо адреса відправник = віднімаємо суму + комісію
-                    if (transaction.From == address)
-                    {
-                        balance -= (transaction.Amount + transaction.Fee);
-                    }
+                    balance -= tx.Amount + tx.Fee;
+                }
+                if(tx.To == address)
+                {
+                    balance += tx.Amount;
                 }
 
+                
             }
+            return balance;
+
+            //decimal balance = 0;
+
+            //// Преревіряємо всі блоки в ланцюгу
+            //foreach (var block in Chain)
+            //{
+
+            //    foreach (var transaction in block.Transactions)
+            //    {
+            //        // якщо адреса отримувача - додаємо суму
+            //        if (transaction.To == address)
+            //        {
+            //            balance += transaction.Amount;
+            //        }
+
+            //        // якщо адреса відправник = віднімаємо суму + комісію
+            //        if (transaction.From == address)
+            //        {
+            //            balance -= (transaction.Amount + transaction.Fee);
+            //        }
+            //    }
+
+            //}
 
             //foreach (var transaction in _pendingTransaction)
             //{
@@ -343,5 +392,179 @@ namespace BlockChainApp.Services
 
         }
 
+
+
+        private void AppyBlockToState(Block block)
+        {
+            foreach (var transaction in block.Transactions)
+            {
+                if (transaction.From != "COINBASE")
+                {
+                    if (Balances.ContainsKey(transaction.From))
+                    {
+                        Balances[transaction.From] -= transaction.Amount + transaction.Fee;
+
+                    }
+                    else
+                    {
+                        Balances[transaction.From] = -(transaction.Amount + transaction.Fee);
+                    }
+                                        
+                }
+                if (Balances.ContainsKey(transaction.To))
+                {
+                    Balances[transaction.To] += transaction.Amount;
+                }
+                else
+                {
+                    Balances[transaction.To] = transaction.Amount;
+                }
+
+            }
+        }
+
+        public void AppendBlockToFile(Block block)
+        {
+            string jsonLine = JsonSerializer.Serialize(block);
+            File.AppendAllLines(_storageFilePath, new[] { jsonLine });
+        }
+           
+        public void LoadChainFromFile()
+        {
+            if (!File.Exists(_storageFilePath))
+                return;
+            var lines = File.ReadLines(_storageFilePath);
+            var loadedChain = new List<Block>();
+           
+            Chain.Clear();
+            Balances.Clear();
+
+            foreach (var line in lines)
+            {
+                var block = JsonSerializer.Deserialize<Block>(line);
+                if (block != null)
+                {
+                    //Chain.Add(block);
+                    //this.AppyBlockToState(block);
+                    loadedChain.Add(block);
+                }
+            }
+            var filteredChain = new List<Block>();
+            var seenIndices = new HashSet<int>();
+
+            foreach (var block in loadedChain)
+            {
+                if (!seenIndices.Contains(block.Index))
+                {
+                    seenIndices.Add(block.Index);
+                    filteredChain.Add(block);
+                }
+                else
+                {
+                    Console.WriteLine($"Виявлено дублікат блоку з індексом {block.Index}. Видаляємо...");
+                }
+            }
+
+            //  перевіряю цілісність ланцюга
+            if (!ValidateBlockchainIntegrity(filteredChain))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("КРИТИЧНА ПОМИЛКА: Файл blocks.dat скомпрометовано!");
+                Console.WriteLine("Завантаження блокчейну скасовано!!!");
+                Console.ForegroundColor = ConsoleColor.White;
+
+
+                Chain.Clear();
+                Balances.Clear();
+
+                return;
+            }
+
+            // Якщо перевірку пройдено, то завантажуємо ланцюг і відновлюємо State
+            Chain.Clear();
+            Balances.Clear();
+            
+            foreach (var block in filteredChain)
+            {
+                Chain.Add(block);
+                AppyBlockToState(block);
+            }
+
+            Console.WriteLine($"Завантажено {filteredChain.Count} блоків.");
+        }
+
+        private bool ValidateBlockchainIntegrity(List<Block> blocks)
+        {
+            if (blocks.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                var currentBlock = blocks[i];
+
+                // перевіряємо хеш блоку 
+                string computedHash = _hashingService.ComputeHash(currentBlock);
+
+                if (currentBlock.Hash != computedHash)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Помилка в блоці {i}: Хеш не відповідає обчисленому!");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    return false;
+                }
+
+                // перевіряємо PrevHash всіх, крім генезис - блоку
+                if (i > 0)
+                {
+                    var previousBlock = blocks[i - 1];
+                    if (currentBlock.PrevHash != previousBlock.Hash)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"Помилка в блоці {i}: PrevHash не вказує на попередній блок!");
+                        Console.ForegroundColor = ConsoleColor.White;
+                        return false;
+                    }
+                }
+
+                // перевірка складності майнінгу
+                if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty))) 
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Помилка в блоці {i}: Неправильна складність майніннгу! ");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    return false;
+                }
+
+
+                // перевірку піддпису
+                foreach (var tx in currentBlock.Transactions)
+                {
+                    if (tx.From != "COINBASE")
+                    {
+                        bool isValid = _walletService.VeryfiSignature(
+                            tx.GetDataSing(),
+                            tx.Signature,
+                            tx.PublicKey
+                            );
+                        if (!isValid)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine($"Помилка в блоці {i}: Невалідний підпис транзакції! ");
+                            Console.ForegroundColor = ConsoleColor.White;
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+
+        public int GetPendingTransactionCount()
+        {
+            return _pendingTransaction.Count;
+        }
     }
 }
