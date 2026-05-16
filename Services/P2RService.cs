@@ -59,7 +59,7 @@ namespace BlockChainApp.Services
             {
                 _peers.Add(client);
             }
-            
+            BroadCast(MessageType.RequestChain, null);
             Task.Run(() =>  HandleClinet(client));
         }
 
@@ -129,7 +129,18 @@ namespace BlockChainApp.Services
                 var newTransaction = JsonSerializer.Deserialize<Transaction>(message.Data);
                 _blockChain.AddTransaction(newTransaction);
                 //_blockChain.AddTransactionFromNetwork(newTransacAdd      }
-        }
+            }
+            else if (message.Type == MessageType.SendChain)
+                {
+                var receivedChain = JsonSerializer.Deserialize<List<Block>>(message.Data);
+                    {
+                    if (receivedChain != null)
+                    {
+                        _blockChain.ReplaceChain(receivedChain);
+                    }
+                }
+
+            }
         }
 
         public void BroadCast(MessageType messageType, object data)

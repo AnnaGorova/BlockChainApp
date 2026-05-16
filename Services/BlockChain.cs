@@ -34,7 +34,7 @@ namespace BlockChainApp.Services
 
         
 
-        private readonly int minerReward = 50;
+        private readonly int minerReward = 0; // винагорода майнеру за створення блоку
 
         private readonly string _storageFilePath = "blockchain_data.dat";
         public Dictionary<string, decimal> Balances { get; set; } = new Dictionary<string, decimal>();
@@ -116,7 +116,7 @@ namespace BlockChainApp.Services
                 //    if (senderBalance < transaction.Amount + transaction.Fee);
                 //}
 
-                // 2. Перевірка балансу  через словник State
+                // Перевірка балансу  через словник State
                 //decimal balance = GetBalance(transaction.From);
                 // отримуємо баланс з кешу State
                 decimal balance = Balances.ContainsKey(transaction.From) 
@@ -300,13 +300,13 @@ namespace BlockChainApp.Services
 
 
         //Метод для перевірки цілісності блокчейну
-        public bool isValid()
+        public bool isValid(List<Block> chain)
         {
-            for (int i = 1; i < Chain.Count; i++)
+            for (int i = 1; i < chain.Count; i++)
             {
-                var currentBlock = Chain[i];
+                var currentBlock = chain[i];
 
-                var previousBlock = Chain[i - 1];
+                var previousBlock = chain[i - 1];
                 // перевіряємо чи хеш поточного блоку правильний (чи не були змінені дані в блоці)
                 if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
                     return false;
@@ -565,6 +565,48 @@ namespace BlockChainApp.Services
         public int GetPendingTransactionCount()
         {
             return _pendingTransaction.Count;
+        }
+
+
+
+
+
+        public bool ReplaceChain(List<Block> newChain)
+        {
+            if (newChain.Count <= Chain.Count)
+                return false;
+            if (!isValid(newChain))
+                return false;
+
+            var oldTransactions = Chain.SelectMany(b => b.Transactions).Where(x => x.From != "COINBASE").ToList();            
+            var newTransactions = newChain.SelectMany(b => b.Transactions).Where(x => x.From != "COINBASE").Select(x => x.Signature).ToList(); // Всі транзакції з нового ланцюга
+           
+            foreach (var tx in oldTransactions)
+            {
+                if (!newTransactions.Any(sig => sig.SequenceEqual(tx.Signature)))
+                {
+                    _pendingTransaction.Add(tx);
+                }
+            }
+            
+            
+            Chain = newChain;
+            Difficulty = newChain.Last().Difficulty;
+
+            if (File.Exists(_storageFilePath))
+            {
+                File.Delete(_storageFilePath);
+            }
+
+            Balances.Clear();
+            foreach (var block in Chain)
+            {
+                AppyBlockToState(block);
+                AppendBlockToFile(block);
+
+            }
+            return true;
+                   
         }
     }
 }

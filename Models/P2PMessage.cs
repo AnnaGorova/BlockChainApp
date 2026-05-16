@@ -16,6 +16,8 @@ namespace BlockChainApp.Models
     {
         BroadcastBlock,
         BroadcastTransaction,
+        RequestChain,
+        SendChain,
         
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Security.Cryptography.X509Certificates;
 using BlockChainApp.Models;
 using BlockChainApp.Services;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace BlockChainApp
 {
@@ -16,53 +17,303 @@ namespace BlockChainApp
 
 
             string storageFile = "blockchain_data.dat";
-            //if (File.Exists(storageFile)) File.Delete(storageFile);
+            if (File.Exists(storageFile)) File.Delete(storageFile);
 
             var walletService = new WalletService();
-            var blockChain = new BlockChain(1);
-            var transactionService = new TransactionService(walletService);
 
-            var p2pService = new P2RService(blockChain);
-            var displayService = new BlockChainDisplayService();
+            var localNode = new BlockChain(1);
+            var hackerNode = new BlockChain(1);
+            var honestNetwork = new BlockChain(1);
+
+            var minerWallet = walletService.CreateWallet("Miner");
+            var hackerWallet = walletService.CreateWallet("Hacker");
+            var poolWallet = walletService.CreateWallet("Pool");
+
+            for (int i = 0; i < 2; i++)
+            {
+                localNode.AddTransaction(new Transaction
+                {
+                    From = "COINBASE",
+                    To = minerWallet.Address,
+                    Amount = 50,
+                    Fee = 0,
+                    Timestamp = DateTime.UtcNow
+                });
+                localNode.MinePendingTransaction(minerWallet, 10);
+            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"localNode має {localNode.Chain.Count} блоків - очікувано 3");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine();
+            Console.WriteLine();
 
 
-
-
-
-
-            var alice = walletService.CreateWallet("Alice");
-            var miner = walletService.CreateWallet("Bob");
-            //var myWallet = walletService.CreateWallet("Vlad");
-
-
-            blockChain.AddTransaction(new Transaction
+          
+            hackerNode.AddTransaction(new Transaction
             {
                 From = "COINBASE",
-                To = miner.Address,
-                Amount = 100,
+                To = hackerWallet.Address,
+                Amount = 50,
                 Fee = 0,
                 Timestamp = DateTime.UtcNow
             });
+            hackerNode.MinePendingTransaction(hackerWallet, 10);
+
+            var lastBlock = hackerNode.Chain.Last();
+            for (int i = 0; i < 5; i++)
+            {
+                var fakeBlock = new Block(
+                    lastBlock.Index + 1 + i,
+                    new List<Transaction>(),
+                    lastBlock.Hash,
+                    "Hacker",
+                    1
+                );
+                fakeBlock.Hash = "000Fake";
+                fakeBlock.Nonce = 0;
+                hackerNode.Chain.Add(fakeBlock);
+                lastBlock = fakeBlock;
+            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"hackerNode має {hackerNode.Chain.Count} блоків - очікувано 7 -  хеші невалідні");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine();
+            Console.WriteLine();
 
 
-            blockChain.MinePendingTransaction(miner, 10);
-            blockChain.MinePendingTransaction(miner, 10);
+            for (int i = 0; i < 4; i++)
+            {
+                honestNetwork.AddTransaction(new Transaction
+                {
+                    From = "COINBASE",
+                    To = poolWallet.Address,
+                    Amount = 50,
+                    Fee = 0,
+                    Timestamp = DateTime.UtcNow
+                });
+                honestNetwork.MinePendingTransaction(poolWallet, 10);
+            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"honestNetwork має {honestNetwork.Chain.Count} блоків - очікувано 5");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine();
+            Console.WriteLine();
+
+
+
+            // Перевірка 1 (Стійкість до фейкового хешрейту):
+            // Спробуйте викликати localNode.ReplaceChain(hackerNode.Chain);
+            // і виведіть результат цієї операції, а також поточну довжину
+            // ланцюга localNode. Очікується: операція поверне False (відхилено),
+            // а довжина ланцюга залишиться 3.
+
+            bool attackResult = localNode.ReplaceChain(hackerNode.Chain);
+            Console.WriteLine($"Результат ReplaceChain (hackerNode.Chain): {attackResult}");
+            Console.WriteLine($"localNode має: {localNode.Chain.Count} має блоків після атаки");
+
+            if (!attackResult && localNode.Chain.Count == 3)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Первірку пройдено, Фейковий ланцюг віхилено");
+                Console.ForegroundColor = ConsoleColor.White;
+            } else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Первірку НЕ пройдено, Фейковий ланцюг прийнято");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            Console.WriteLine();
+            Console.WriteLine();
+
+            // Перевірка 2(Успішний Консенсус Накамото):
+            // Тепер викличте localNode.ReplaceChain(honestNetwork.Chain);
+            // і виведіть результат, а також нову довжину ланцюга.Очікується:
+            // операція поверне True(прийнято), довжина ланцюга стане 5.
+            Console.WriteLine($"localNode має {localNode.Chain.Count} до синхронізації");
+            bool consensusResalt = localNode.ReplaceChain(honestNetwork.Chain);
+            Console.WriteLine($"результат ReplaceChain(honestNetwork.Chain): {consensusResalt}");
+            Console.WriteLine($"localNode має: {localNode.Chain.Count} бллоків після синхронізації");
+
+
+            if (consensusResalt && localNode.Chain.Count == 5)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Первірку пройдено, Чесний довший ланцюг прийнято");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Первірку НЕ пройдено, Чесний ланцюг не прийняято");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            Console.WriteLine();
+            Console.WriteLine();
+
+            // Перевірка 3 (Економіка після синхронізації):
+            // Виведіть баланс гаманця Pool, використовуючи
+            // миттєвий словник нашої синхронізованої ноди:
+            // localNode.State[Pool.Address].
+            // Очікується: 200 (4 нагороди по 50 монет від
+            // чесної мережі).
+            // (Підказка: якщо отримуєте KeyNotFoundException,
+            // перевірте, чи коректно ваш метод ReplaceChain
+            // викликає оновлення State).
+            decimal poolBalace = localNode.Balances.ContainsKey(poolWallet.Address)
+                ? localNode.Balances[poolWallet.Address]
+                : 0;
+            Console.WriteLine($"Баланс Pool після синхронізації: {poolBalace} монет" +
+                $"- Очікується 200 монет - 4 винагороди по 50");
+            Console.WriteLine();
             
-
-            var transferTx = transactionService.CreateTransaction(miner, alice.Address, 20, 1.0m);
-            blockChain.AddTransaction(transferTx);
-
-            blockChain.MinePendingTransaction(miner, 10);
-
-            Console.WriteLine($"Кількість блоків у Chain: {blockChain.Chain.Count}");
-            Console.WriteLine($"Баланс Аліси: {blockChain.GetBalance(alice.Address)} монет.");
+            if (poolBalace == 200)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Первірку пройдено, баланс відповідає потрібному");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Первірку НЕ пройдено,Баланс  = {poolBalace} монет - очікували 200 монет.");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
             Console.WriteLine();
             Console.WriteLine();
 
-            var restored = new BlockChain(1);
-            restored.Chain.Clear();
-            restored.Balances.Clear();
-            restored.LoadChainFromFile();
+
+
+
+            //var blockChain = new BlockChain(1);
+            //var transactionService = new TransactionService(walletService);
+
+            //var p2pService = new P2RService(blockChain);
+            //var displayService = new BlockChainDisplayService();
+
+
+
+
+
+
+            //var alice = walletService.CreateWallet("Alice");
+            //var miner = walletService.CreateWallet("Bob");
+            ////var myWallet = walletService.CreateWallet("Vlad");
+
+            //var aliceWallet = walletService.CreateWallet("Alice");
+            //var bobeWallet = walletService.CreateWallet("Bob");
+            //var minerWallet = walletService.CreateWallet("Miner");
+
+
+            //var nodeA = new BlockChain(1);
+            //var nodeB = new BlockChain(1);
+
+            //var satoshi = walletService.CreateWallet("Satoshi"); 
+            //var vitalik = walletService.CreateWallet("Vitalik"); 
+
+
+            //nodeA.AddTransaction(new Transaction
+            //{
+            //    From = "COINBASE",
+            //    To = satoshi.Address,
+            //    Amount = 50,
+            //    Fee = 0,
+            //    Timestamp = DateTime.UtcNow
+            //});
+            //nodeA.MinePendingTransaction(satoshi, 10);
+
+
+            //nodeA.AddTransaction(new Transaction
+            //{
+            //    From = "COINBASE",
+            //    To = satoshi.Address,
+            //    Amount = 50,
+            //    Fee = 0,
+            //    Timestamp = DateTime.UtcNow
+            //});
+            //nodeA.MinePendingTransaction(satoshi, 10);
+
+
+            //for (int i = 0; i < 4; i++)
+            //{
+            //    nodeB.AddTransaction(new Transaction
+            //    {
+            //        From = "COINBASE",
+            //        To = vitalik.Address,
+            //        Amount = 50,
+            //        Fee = 0,
+            //        Timestamp = DateTime.UtcNow
+            //    });
+            //    nodeB.MinePendingTransaction(vitalik, 10);
+            //}
+
+
+
+
+
+
+
+            //bool replaced = nodeA.ReplaceChain(nodeB.Chain);
+
+            //// Перевірка 1 (Перемога найдовшого ланцюга):
+            //// Вивести поточну кількість блоків у nodeA.Chain.Count.
+            //// Очікується: 5.
+            //Console.WriteLine($"Кількість блоків в nodeA: {nodeA.Chain.Count} - очікується 5");
+
+
+            //// Перевірка 2(Економічна справедливість State):
+            //// Вивести баланси Satoshi та Vitalik на nodeA,
+            //// звертаючись безпосередньо до миттєвого словника nodeA.State[...].
+            //// Очікується: Satoshi = 0(його блоки відкинуто мережею),
+            //// Vitalik = 200(4 нагороди по 50). (Підказка: перевірте через ContainsKey,
+            //// щоб не отримати помилку, якщо Satoshi взагалі зник зі словника).
+
+            //decimal satoshBalance = nodeA.Balances.ContainsKey(satoshi.Address) ? nodeA.Balances[satoshi.Address] : 0;
+            //decimal vitalikBalance = nodeA.Balances.ContainsKey(vitalik.Address) ? nodeA.Balances[vitalik.Address] : 0;
+
+            //Console.WriteLine($"Баланс Satoshi: {satoshBalance}  -  очікую 0");
+            //Console.WriteLine($"Баланс Vitalik: {vitalikBalance}  -  очікую 200");
+
+            //// Перевірка 3(Синхронізація диска): Вивести кількість рядків у
+            //// локальному файлі сховища blocks.dat через File.ReadLines("blocks.dat").
+            //// Count().Очікується: 5.
+            //storageFile = "blockchain_data.dat";
+            //int lineCount = File.Exists(storageFile)
+            //    ? File.ReadAllLines(storageFile).Length
+            //    : 0;
+
+            //Console.WriteLine($"Кількість рядків у файлі blocks.dat: {lineCount} - очікується 5");
+
+
+
+
+            //blockChain.AddTransaction(new Transaction
+            //{
+            //    From = "COINBASE",
+            //    To = miner.Address,
+            //    Amount = 100,
+            //    Fee = 0,
+            //    Timestamp = DateTime.UtcNow
+            //});
+
+
+            //blockChain.MinePendingTransaction(miner, 10);
+            //blockChain.MinePendingTransaction(miner, 10);
+
+
+            //var transferTx = transactionService.CreateTransaction(miner, alice.Address, 20, 1.0m);
+            //blockChain.AddTransaction(transferTx);
+
+            //blockChain.MinePendingTransaction(miner, 10);
+
+            //Console.WriteLine($"Кількість блоків у Chain: {blockChain.Chain.Count}");
+            //Console.WriteLine($"Баланс Аліси: {blockChain.GetBalance(alice.Address)} монет.");
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+            //var restored = new BlockChain(1);
+            //restored.Chain.Clear();
+            //restored.Balances.Clear();
+            //restored.LoadChainFromFile();
 
 
 
@@ -70,23 +321,23 @@ namespace BlockChainApp
             //int lineCount = File.ReadAllLines(storageFile).Length;
             //Console.WriteLine($"(Цілісність файлу): Вивести кількість рядків у файлі blocks.dat " +
             //    $"{lineCount}  - повинно бути 5");
-            
+
             //Console.WriteLine($"Баланс Аліси: {restored.Balances[alice.Address]} - повинно бути 20 монет");
 
             //Console.WriteLine($"Очищення мемпулу: {restored.GetPendingTransactionCount()} - повинно бути 0 монет");
 
-           
-            if (restored.Chain.Count > 0)
-            {
-                decimal aliceBalance = restored.Balances.ContainsKey(alice.Address)
-                    ? restored.Balances[alice.Address]
-                    : 0;
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Блокчейн відновлено! Баланс Аліси: {aliceBalance} монет");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
 
-            displayService.printBlockChain(blockChain.Chain);
+            //if (restored.Chain.Count > 0)
+            //{
+            //    decimal aliceBalance = restored.Balances.ContainsKey(alice.Address)
+            //        ? restored.Balances[alice.Address]
+            //        : 0;
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine($"Блокчейн відновлено! Баланс Аліси: {aliceBalance} монет");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+
+            //displayService.printBlockChain(blockChain.Chain);
 
             //var initialBalance = new Transaction
             //{
@@ -199,7 +450,7 @@ namespace BlockChainApp
             //    Console.WriteLine("Легальна операція");
             //}
 
-            //    p2pService.StartServer(port);
+            //p2pService.StartServer(port);
 
             //if (args.Length > 1)
             //{
@@ -226,7 +477,7 @@ namespace BlockChainApp
             //        case "1":
             //            Console.WriteLine("Введіть суму: ");
             //            if (decimal.TryParse(Console.ReadLine(), out decimal amount))
-            //            {   
+            //            {
             //                var transaction = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, amount, 0.01m);
             //                if (blockChain.AddTransaction(transaction))
             //                {
@@ -246,7 +497,7 @@ namespace BlockChainApp
             //            }
             //            break;
 
-            //        case "2": 
+            //        case "2":
             //            Console.WriteLine("Майнінг блоку ...");
             //            blockChain.MinePendingTransaction(aliceWallet, 5);
             //            var latestBlock = blockChain.Chain.Last();
@@ -267,7 +518,7 @@ namespace BlockChainApp
 
             //        case "5":
             //            //bool
-            //            isValid = blockChain.isValid();
+            //            bool isValid = blockChain.isValid(blockChain.Chain);
 
             //            Console.WriteLine(isValid ? "Блокчейн валідний." : "Блокчейн не валідний!");
 
