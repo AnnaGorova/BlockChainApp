@@ -20,166 +20,248 @@ namespace BlockChainApp
             if (File.Exists(storageFile)) File.Delete(storageFile);
 
             var walletService = new WalletService();
+            var transactionService = new TransactionService(walletService);
 
-            var localNode = new BlockChain(1);
-            var hackerNode = new BlockChain(1);
-            var honestNetwork = new BlockChain(1);
+            var originalChain = new BlockChain(1);
 
-            var minerWallet = walletService.CreateWallet("Miner");
-            var hackerWallet = walletService.CreateWallet("Hacker");
-            var poolWallet = walletService.CreateWallet("Pool");
-
-            for (int i = 0; i < 2; i++)
-            {
-                localNode.AddTransaction(new Transaction
-                {
-                    From = "COINBASE",
-                    To = minerWallet.Address,
-                    Amount = 50,
-                    Fee = 0,
-                    Timestamp = DateTime.UtcNow
-                });
-                localNode.MinePendingTransaction(minerWallet, 10);
-            }
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"localNode має {localNode.Chain.Count} блоків - очікувано 3");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine();
-            Console.WriteLine();
+            var alice = walletService.CreateWallet("Alice");
+            var hacker = walletService.CreateWallet("Hacker");
 
 
-          
-            hackerNode.AddTransaction(new Transaction
+            originalChain.AddTransaction(new Transaction
             {
                 From = "COINBASE",
-                To = hackerWallet.Address,
-                Amount = 50,
+                To = alice.Address,
+                Amount = 100,
                 Fee = 0,
                 Timestamp = DateTime.UtcNow
             });
-            hackerNode.MinePendingTransaction(hackerWallet, 10);
+            originalChain.MinePendingTransaction(alice, 10);
 
-            var lastBlock = hackerNode.Chain.Last();
-            for (int i = 0; i < 5; i++)
+            var legalTx = transactionService.CreateTransaction(alice, hacker.Address, 5, 0.1m);
+            originalChain.AddTransaction(legalTx);
+            originalChain.MinePendingTransaction(alice, 10);
+
+            Console.WriteLine($"Баланс Аліси до злому: {originalChain.GetBalance(alice.Address)}");
+            Console.WriteLine($"Баланс Хакера до злому: {originalChain.GetBalance(hacker.Address)}");
+            Console.WriteLine($"Файл збережено:{storageFile}");
+
+
+
+            string fileContent = File.ReadAllText(storageFile);
+
+            string originalAmount = "\"Amount\":5";
+            string fakeAmount = "\"Amount\":50000";
+
+            if (fileContent.Contains(originalAmount))
             {
-                var fakeBlock = new Block(
-                    lastBlock.Index + 1 + i,
-                    new List<Transaction>(),
-                    lastBlock.Hash,
-                    "Hacker",
-                    1
-                );
-                fakeBlock.Hash = "000Fake";
-                fakeBlock.Nonce = 0;
-                hackerNode.Chain.Add(fakeBlock);
-                lastBlock = fakeBlock;
-            }
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"hackerNode має {hackerNode.Chain.Count} блоків - очікувано 7 -  хеші невалідні");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine();
-            Console.WriteLine();
-
-
-            for (int i = 0; i < 4; i++)
-            {
-                honestNetwork.AddTransaction(new Transaction
-                {
-                    From = "COINBASE",
-                    To = poolWallet.Address,
-                    Amount = 50,
-                    Fee = 0,
-                    Timestamp = DateTime.UtcNow
-                });
-                honestNetwork.MinePendingTransaction(poolWallet, 10);
-            }
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"honestNetwork має {honestNetwork.Chain.Count} блоків - очікувано 5");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine();
-            Console.WriteLine();
-
-
-
-            // Перевірка 1 (Стійкість до фейкового хешрейту):
-            // Спробуйте викликати localNode.ReplaceChain(hackerNode.Chain);
-            // і виведіть результат цієї операції, а також поточну довжину
-            // ланцюга localNode. Очікується: операція поверне False (відхилено),
-            // а довжина ланцюга залишиться 3.
-
-            bool attackResult = localNode.ReplaceChain(hackerNode.Chain);
-            Console.WriteLine($"Результат ReplaceChain (hackerNode.Chain): {attackResult}");
-            Console.WriteLine($"localNode має: {localNode.Chain.Count} має блоків після атаки");
-
-            if (!attackResult && localNode.Chain.Count == 3)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Первірку пройдено, Фейковий ланцюг віхилено");
-                Console.ForegroundColor = ConsoleColor.White;
-            } else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Первірку НЕ пройдено, Фейковий ланцюг прийнято");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            Console.WriteLine();
-            Console.WriteLine();
-
-            // Перевірка 2(Успішний Консенсус Накамото):
-            // Тепер викличте localNode.ReplaceChain(honestNetwork.Chain);
-            // і виведіть результат, а також нову довжину ланцюга.Очікується:
-            // операція поверне True(прийнято), довжина ланцюга стане 5.
-            Console.WriteLine($"localNode має {localNode.Chain.Count} до синхронізації");
-            bool consensusResalt = localNode.ReplaceChain(honestNetwork.Chain);
-            Console.WriteLine($"результат ReplaceChain(honestNetwork.Chain): {consensusResalt}");
-            Console.WriteLine($"localNode має: {localNode.Chain.Count} бллоків після синхронізації");
-
-
-            if (consensusResalt && localNode.Chain.Count == 5)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Первірку пройдено, Чесний довший ланцюг прийнято");
-                Console.ForegroundColor = ConsoleColor.White;
+                fileContent = fileContent.Replace(originalAmount, fakeAmount);
+                Console.WriteLine($"Злом - знайдено транзакцію {originalAmount} та змінено на {fakeAmount}");
             }
             else
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Первірку НЕ пройдено, Чесний ланцюг не прийняято");
-                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine($"Не знайдено транзакцію з {originalAmount}");
             }
-            Console.WriteLine();
-            Console.WriteLine();
 
-            // Перевірка 3 (Економіка після синхронізації):
-            // Виведіть баланс гаманця Pool, використовуючи
-            // миттєвий словник нашої синхронізованої ноди:
-            // localNode.State[Pool.Address].
-            // Очікується: 200 (4 нагороди по 50 монет від
-            // чесної мережі).
-            // (Підказка: якщо отримуєте KeyNotFoundException,
-            // перевірте, чи коректно ваш метод ReplaceChain
-            // викликає оновлення State).
-            decimal poolBalace = localNode.Balances.ContainsKey(poolWallet.Address)
-                ? localNode.Balances[poolWallet.Address]
-                : 0;
-            Console.WriteLine($"Баланс Pool після синхронізації: {poolBalace} монет" +
-                $"- Очікується 200 монет - 4 винагороди по 50");
-            Console.WriteLine();
-            
-            if (poolBalace == 200)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Первірку пройдено, баланс відповідає потрібному");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Первірку НЕ пройдено,Баланс  = {poolBalace} монет - очікували 200 монет.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            Console.WriteLine();
-            Console.WriteLine();
+            File.WriteAllText(storageFile, fileContent);
+            Console.WriteLine($"Файл {storageFile} скомпроментовано!");
+
+            Console.WriteLine($"Перезапуск ноди...");
+
+            var newChain = new BlockChain(1);
+            newChain.LoadChainFromFile();
+
+            // Перевірка 1 (Реакція системи): Зробіть скріншот консолі,
+            // де видно, що під час ініціалізації нового об'єкта BlockChain
+            // спрацював ваш захист і вивів червоне повідомлення про
+            // компрометацію.
+            Console.WriteLine("Перевірка 1 (Реакція системи) - повідомлення червоним вище");
+
+
+            // Перевірка 2 (Ізоляція вірусу): Виведіть довжину ланцюга
+            // відновленої мережі newBlockChain.Chain.Count.
+            // Очікується: 0 (або 1, якщо ваш конструктор одразу перестворив
+            // чистий Генезис).
+            Console.WriteLine("Перевірка 2 (Ізоляція вірусу");
+            Console.WriteLine($"Довжина ланцюга після злому: {newChain.Chain.Count} - очікується 0");
+            Console.WriteLine(newChain.Chain.Count == 0
+                ? "Перевірку пройддено - очікується 0"
+                : "НЕ ПРОЙДЕНО");
+
+
+            // Перевірка 3 (Блокування фінансів): Виведіть баланс Хакера
+            // в новій мережі: newBlockChain.GetBalance(Hacker.Address).
+            // Очікується: 0 (підроблені 50000 монет не були завантажені).
+            Console.WriteLine("Перевірка 3 (Блокування фінансів)");
+            decimal hackerBalance = newChain.GetBalance(hacker.Address);
+            Console.WriteLine($"Баланс Хакера після злому: {hackerBalance} - очікується 0");
+            Console.WriteLine(hackerBalance == 0
+                ? "Пройдено перевірку - підроблені кошти відхилено"
+                : "Перевірку не пройдено");
+
+
+
+
+
+            //var localNode = new BlockChain(1);
+            //var hackerNode = new BlockChain(1);
+            //var honestNetwork = new BlockChain(1);
+
+            //var minerWallet = walletService.CreateWallet("Miner");
+            //var hackerWallet = walletService.CreateWallet("Hacker");
+            //var poolWallet = walletService.CreateWallet("Pool");
+
+            //for (int i = 0; i < 2; i++)
+            //{
+            //    localNode.AddTransaction(new Transaction
+            //    {
+            //        From = "COINBASE",
+            //        To = minerWallet.Address,
+            //        Amount = 50,
+            //        Fee = 0,
+            //        Timestamp = DateTime.UtcNow
+            //    });
+            //    localNode.MinePendingTransaction(minerWallet, 10);
+            //}
+            //Console.ForegroundColor = ConsoleColor.Yellow;
+            //Console.WriteLine($"localNode має {localNode.Chain.Count} блоків - очікувано 3");
+            //Console.ForegroundColor = ConsoleColor.White;
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+
+
+            //hackerNode.AddTransaction(new Transaction
+            //{
+            //    From = "COINBASE",
+            //    To = hackerWallet.Address,
+            //    Amount = 50,
+            //    Fee = 0,
+            //    Timestamp = DateTime.UtcNow
+            //});
+            //hackerNode.MinePendingTransaction(hackerWallet, 10);
+
+            //var lastBlock = hackerNode.Chain.Last();
+            //for (int i = 0; i < 5; i++)
+            //{
+            //    var fakeBlock = new Block(
+            //        lastBlock.Index + 1 + i,
+            //        new List<Transaction>(),
+            //        lastBlock.Hash,
+            //        "Hacker",
+            //        1
+            //    );
+            //    fakeBlock.Hash = "000Fake";
+            //    fakeBlock.Nonce = 0;
+            //    hackerNode.Chain.Add(fakeBlock);
+            //    lastBlock = fakeBlock;
+            //}
+            //Console.ForegroundColor = ConsoleColor.Yellow;
+            //Console.WriteLine($"hackerNode має {hackerNode.Chain.Count} блоків - очікувано 7 -  хеші невалідні");
+            //Console.ForegroundColor = ConsoleColor.White;
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+
+            //for (int i = 0; i < 4; i++)
+            //{
+            //    honestNetwork.AddTransaction(new Transaction
+            //    {
+            //        From = "COINBASE",
+            //        To = poolWallet.Address,
+            //        Amount = 50,
+            //        Fee = 0,
+            //        Timestamp = DateTime.UtcNow
+            //    });
+            //    honestNetwork.MinePendingTransaction(poolWallet, 10);
+            //}
+            //Console.ForegroundColor = ConsoleColor.Yellow;
+            //Console.WriteLine($"honestNetwork має {honestNetwork.Chain.Count} блоків - очікувано 5");
+            //Console.ForegroundColor = ConsoleColor.White;
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+
+
+            //// Перевірка 1 (Стійкість до фейкового хешрейту):
+            //// Спробуйте викликати localNode.ReplaceChain(hackerNode.Chain);
+            //// і виведіть результат цієї операції, а також поточну довжину
+            //// ланцюга localNode. Очікується: операція поверне False (відхилено),
+            //// а довжина ланцюга залишиться 3.
+
+            //bool attackResult = localNode.ReplaceChain(hackerNode.Chain);
+            //Console.WriteLine($"Результат ReplaceChain (hackerNode.Chain): {attackResult}");
+            //Console.WriteLine($"localNode має: {localNode.Chain.Count} має блоків після атаки");
+
+            //if (!attackResult && localNode.Chain.Count == 3)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine("Первірку пройдено, Фейковий ланцюг віхилено");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //} else
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Red;
+            //    Console.WriteLine("Первірку НЕ пройдено, Фейковий ланцюг прийнято");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+            //// Перевірка 2(Успішний Консенсус Накамото):
+            //// Тепер викличте localNode.ReplaceChain(honestNetwork.Chain);
+            //// і виведіть результат, а також нову довжину ланцюга.Очікується:
+            //// операція поверне True(прийнято), довжина ланцюга стане 5.
+            //Console.WriteLine($"localNode має {localNode.Chain.Count} до синхронізації");
+            //bool consensusResalt = localNode.ReplaceChain(honestNetwork.Chain);
+            //Console.WriteLine($"результат ReplaceChain(honestNetwork.Chain): {consensusResalt}");
+            //Console.WriteLine($"localNode має: {localNode.Chain.Count} бллоків після синхронізації");
+
+
+            //if (consensusResalt && localNode.Chain.Count == 5)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine("Первірку пройдено, Чесний довший ланцюг прийнято");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+            //else
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Red;
+            //    Console.WriteLine("Первірку НЕ пройдено, Чесний ланцюг не прийняято");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+            //// Перевірка 3 (Економіка після синхронізації):
+            //// Виведіть баланс гаманця Pool, використовуючи
+            //// миттєвий словник нашої синхронізованої ноди:
+            //// localNode.State[Pool.Address].
+            //// Очікується: 200 (4 нагороди по 50 монет від
+            //// чесної мережі).
+            //// (Підказка: якщо отримуєте KeyNotFoundException,
+            //// перевірте, чи коректно ваш метод ReplaceChain
+            //// викликає оновлення State).
+            //decimal poolBalace = localNode.Balances.ContainsKey(poolWallet.Address)
+            //    ? localNode.Balances[poolWallet.Address]
+            //    : 0;
+            //Console.WriteLine($"Баланс Pool після синхронізації: {poolBalace} монет" +
+            //    $"- Очікується 200 монет - 4 винагороди по 50");
+            //Console.WriteLine();
+
+            //if (poolBalace == 200)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine("Первірку пройдено, баланс відповідає потрібному");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+            //else
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Red;
+            //    Console.WriteLine($"Первірку НЕ пройдено,Баланс  = {poolBalace} монет - очікували 200 монет.");
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //}
+            //Console.WriteLine();
+            //Console.WriteLine();
 
 
 
@@ -189,19 +271,132 @@ namespace BlockChainApp
 
             //var p2pService = new P2RService(blockChain);
             //var displayService = new BlockChainDisplayService();
+            //var hashingService = new HashingService();
 
 
 
 
 
-
-            //var alice = walletService.CreateWallet("Alice");
-            //var miner = walletService.CreateWallet("Bob");
-            ////var myWallet = walletService.CreateWallet("Vlad");
+            ////var alice = walletService.CreateWallet("Alice");
+            ////var miner = walletService.CreateWallet("Bob");
+            //////var myWallet = walletService.CreateWallet("Vlad");
 
             //var aliceWallet = walletService.CreateWallet("Alice");
+            //var hackerWallet = walletService.CreateWallet("Hacker");
             //var bobeWallet = walletService.CreateWallet("Bob");
-            //var minerWallet = walletService.CreateWallet("Miner");
+            //var myWallet = walletService.CreateWallet("Vlad");
+            ////var minerWallet = walletService.CreateWallet("Miner");
+
+
+
+            //// Майнинг початкового блоку для отримання нагороди
+            //blockChain.MinePendingTransaction (aliceWallet, 10);
+            //blockChain.MinePendingTransaction(aliceWallet, 10);
+
+            //// Перевірка балансу після майнингу
+            //Console.WriteLine($"Alice wallet balance: {blockChain.GetBalance(aliceWallet.Address)}");
+            //Console.WriteLine($"Hacker wallet balance: {blockChain.GetBalance(hackerWallet.Address)}");
+
+            //// Створення транзакцій з різними комісіями
+            ////var transaction1 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 4, 1.01m);
+            ////var transaction2 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 2, 0.8m);
+            ////var transaction3 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 9, 2.0m);
+            //var transaction1 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 5, 1.0m);
+            //var transaction2 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 10, 1.0m);
+            //var transaction3 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 15, 1.0m);
+            //var transaction4 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 20, 1.0m);
+
+
+            //// Додавання транзакцій до блокчейну
+            //blockChain.AddTransaction(transaction1);
+            //blockChain.AddTransaction(transaction2);
+            //blockChain.AddTransaction(transaction3);
+            //blockChain.AddTransaction(transaction4);
+
+            //// Майнинг блоку для обробки транзакцій
+            ////blockChain.MinePendingTransaction(bobeWallet, 5);
+            //blockChain.MinePendingTransaction(aliceWallet, 10);
+
+            //var lastBlock = blockChain.Chain.Last();
+            //Console.WriteLine($"Блок {lastBlock.Index} намайнено!");
+            //Console.WriteLine($"Кількість транзакцій у блоці: {lastBlock.Transactions.Count}");
+
+            //string originalMerkleRoot = hashingService.GetMerkleRoot(lastBlock.Transactions);
+            //Console.WriteLine($"Оригінальний Корінь Меркла: {originalMerkleRoot}");
+
+
+            //Console.WriteLine("Хакер");
+            //Console.WriteLine("Хакер змінює суму переказу з 10 на 999999 монет!");
+            //lastBlock.Transactions[1].Amount = 999999m;
+
+            //////("Перевірка 1:  (Block Explorer): " +
+            ////    "Використайте ваш новий метод GetTransactionById " +
+            ////    "(або GetTransactionByHash, залежно від того, що ви реалізували), " +
+            ////    "щоб знайти цю зламану транзакцію в мережі. Виведіть її суму. " +
+            ////    "Очікується: 999999.")
+
+            //var foundTx = lastBlock.Transactions[1]; ;
+            //if (foundTx != null)
+            //{
+            //    Console.WriteLine($"Знайдено транзакцію: {foundTx.Id}");
+            //    Console.WriteLine($"СУМА: {foundTx.Amount} монет");
+            //    Console.WriteLine($"Очікувана сума після атаки: 999999");
+            //}
+            //Console.WriteLine();
+            //Console.WriteLine();
+            //// Перевірка 2 (Лавинний ефект Меркла):
+            //// Знову викличте GetMerkleRoot для транзакцій
+            //// цього ж блоку і виведіть новий результат поруч
+            //// із оригінальним. Очікується: Два абсолютно різні 7
+            //// 64-символьні хеші (доводить, що зміна однієї цифри
+            //// повністю переписала корінь).
+            //string newMerkleRoot = hashingService.GetMerkleRoot(lastBlock.Transactions);
+            //Console.WriteLine($"Оригінальний корінь: {originalMerkleRoot}");
+            //Console.WriteLine($"Новий корінь:      {newMerkleRoot}");
+            //Console.WriteLine($"Корені різні: {originalMerkleRoot != newMerkleRoot}");
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+            //// Перевірка 3 (Глобальна безпека):
+            //// Викличте загальний метод валідації всієї
+            ////Очікується: False (Мережа виявила підробку і зупинила роботу).
+            //bool isValid = blockChain.isValid(blockChain.Chain);
+            //Console.WriteLine($"Результат валідації блокчейну: {isValid}");
+
+            //if (!isValid)
+            //{
+            //    Console.WriteLine("Мережа виявила підробку!" +
+            //        " Блокчейн невалідний через зміну Кореня Меркла.");
+            //}
+            //else
+            //{
+            //    Console.WriteLine("Мережа не виявила підробку!");
+            //}
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+
+            //Console.WriteLine($"Перевірка 1 (Block Explorer): Сума = {foundTx.Amount} (очікується 999999)");
+            //Console.WriteLine($"Перевірка 2 (Лавинний ефект): Корені різні = {originalMerkleRoot != newMerkleRoot}");
+            //Console.WriteLine($"Перевірка 3 (Глобальна безпека): Блокчейн валідний = {isValid}");
+            //Console.WriteLine();
+            //Console.WriteLine();
+
+
+
+
+            //// Перевірка балансу після майнингу
+            //Console.WriteLine($"Bob wallet balance: {blockChain.GetBalance(bobeWallet.Address)}");
+            //Console.WriteLine($"Alice wallet balance: {blockChain.GetBalance(aliceWallet.Address)}");
+
+            //displayService.printBlockChain(blockChain.Chain);
+
+           
+           
+
+
+
+
 
 
             //var nodeA = new BlockChain(1);
@@ -450,6 +645,11 @@ namespace BlockChainApp
             //    Console.WriteLine("Легальна операція");
             //}
 
+
+
+
+
+
             //p2pService.StartServer(port);
 
             //if (args.Length > 1)
@@ -518,7 +718,7 @@ namespace BlockChainApp
 
             //        case "5":
             //            //bool
-            //            bool isValid = blockChain.isValid(blockChain.Chain);
+            //            isValid = blockChain.isValid(blockChain.Chain);
 
             //            Console.WriteLine(isValid ? "Блокчейн валідний." : "Блокчейн не валідний!");
 
@@ -526,7 +726,7 @@ namespace BlockChainApp
             //    }
             //}
 
-
+           
 
             //displayService.printBlockChain(blockChain.Chain);
 

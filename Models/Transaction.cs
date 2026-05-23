@@ -58,5 +58,7 @@ namespace BlockChainApp.Models
             // повертаємо повний рядок з усіма полями транзакції 
             return $"{From}:{To}:{Amount}:{Fee}:{Timestamp}:{hexSignaturer}";
         }
+
+
     }
 }

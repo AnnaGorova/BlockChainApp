@@ -34,7 +34,7 @@ namespace BlockChainApp.Services
 
         
 
-        private readonly int minerReward = 0; // винагорода майнеру за створення блоку
+        private readonly int minerReward = 50; // винагорода майнеру за створення блоку
 
         private readonly string _storageFilePath = "blockchain_data.dat";
         public Dictionary<string, decimal> Balances { get; set; } = new Dictionary<string, decimal>();
@@ -607,6 +607,21 @@ namespace BlockChainApp.Services
             }
             return true;
                    
+        }
+
+
+        public Transaction GetTransactionById(int id)
+        {
+            foreach (var block in Chain)
+            {
+                if (block.Transactions != null)
+                {
+                    var transaction = block.Transactions.FirstOrDefault(t => t.Id == id);
+                    if (transaction != null)
+                        return transaction;
+                }
+            }
+            return null;
         }
     }
 }
