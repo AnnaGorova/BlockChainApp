@@ -94,6 +94,7 @@ namespace BlockChainApp.Services
             }
         }
 
+
         private void ProcessMessage(P2PMessage? message)
         {
             if (message == null)
@@ -105,10 +106,8 @@ namespace BlockChainApp.Services
             if (message.Type == MessageType.BroadcastBlock)
             {
                 var newBlock = JsonSerializer.Deserialize<Block>(message.Data);
-
                 var hasingService = new HashingService();
                 var calculatedHash = hasingService.ComputeHash(newBlock);
-
                 var tartetHash = new string('0', newBlock.Difficulty);
 
                 if (calculatedHash == newBlock.Hash && calculatedHash.StartsWith(tartetHash))
@@ -116,32 +115,77 @@ namespace BlockChainApp.Services
                     _blockChain.Chain.Add(newBlock);
                     Console.WriteLine($"New block added: {newBlock.Index}");
                 }
-
-                //if (newBlock.Index > _blockChain.Chain.Last().Index)
-                //{
-                //    _blockChain.Chain.Add(newBlock);
-                //    Console.WriteLine($"New block added: {newBlock.Index}");
-
-                //}
+            }
+            else if (message.Type == MessageType.RequestChain)
+            {
+               
+                BroadCast(MessageType.SendChain, _blockChain.Chain);
+                Console.WriteLine("Надіслано ланцюг на запит");
             }
             else if (message.Type == MessageType.BroadcastTransaction)
             {
                 var newTransaction = JsonSerializer.Deserialize<Transaction>(message.Data);
-                _blockChain.AddTransaction(newTransaction);
-                //_blockChain.AddTransactionFromNetwork(newTransacAdd      }
+                _blockChain.AddTransactionFromNetwork(newTransaction);
             }
             else if (message.Type == MessageType.SendChain)
-                {
+            {
                 var receivedChain = JsonSerializer.Deserialize<List<Block>>(message.Data);
-                    {
-                    if (receivedChain != null)
-                    {
-                        _blockChain.ReplaceChain(receivedChain);
-                    }
+                if (receivedChain != null)
+                {
+                    _blockChain.ReplaceChain(receivedChain);
+                    Console.WriteLine($"Ланцюг замінено, блоків: {receivedChain.Count}");
                 }
-
             }
         }
+
+        //private void ProcessMessage(P2PMessage? message)
+        //{
+        //    if (message == null)
+        //    {
+        //        Console.WriteLine("Отримано null повідомлення");
+        //        return;
+        //    }
+
+        //    if (message.Type == MessageType.BroadcastBlock)
+        //    {
+        //        var newBlock = JsonSerializer.Deserialize<Block>(message.Data);
+
+        //        var hasingService = new HashingService();
+        //        var calculatedHash = hasingService.ComputeHash(newBlock);
+
+        //        var tartetHash = new string('0', newBlock.Difficulty);
+
+        //        if (calculatedHash == newBlock.Hash && calculatedHash.StartsWith(tartetHash))
+        //        {
+        //            _blockChain.Chain.Add(newBlock);
+        //            Console.WriteLine($"New block added: {newBlock.Index}");
+        //        }
+
+        //        //if (newBlock.Index > _blockChain.Chain.Last().Index)
+        //        //{
+        //        //    _blockChain.Chain.Add(newBlock);
+        //        //    Console.WriteLine($"New block added: {newBlock.Index}");
+
+        //        //}
+        //    }
+        //    else if (message.Type == MessageType.BroadcastTransaction)
+        //    {
+        //        var newTransaction = JsonSerializer.Deserialize<Transaction>(message.Data);
+        //        _blockChain.AddTransaction(newTransaction);
+        //        //_blockChain.AddTransactionFromNetwork(newTransacAdd      }
+        //    }
+        //    else if (message.Type == MessageType.SendChain)
+        //        {
+        //        var receivedChain = JsonSerializer.Deserialize<List<Block>>(message.Data);
+        //            {
+        //            if (receivedChain != null)
+        //            {
+        //                _blockChain.ReplaceChain(receivedChain);
+        //            }
+        //        }
+
+        //    }
+        //}
 
         public void BroadCast(MessageType messageType, object data)
         {

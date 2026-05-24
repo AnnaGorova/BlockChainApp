@@ -24,15 +24,18 @@ namespace BlockChainApp.Models
         // публічний ключ відправника, використовується для перевірки підпису транзакції
         public byte[] PublicKey { get; set; }
 
+        public string Memo { get; set; } = string.Empty;
+
         public Transaction() { }
-        public Transaction(string from, string to, decimal amount, decimal fee, byte[] publicKey)
+        public Transaction(string from, string to, decimal amount, decimal fee, byte[] publicKey, string memo = "")
         {
             From = from;
             To = to;
             Amount = amount;
             Fee = fee;
             PublicKey = publicKey;
-            Timestamp = DateTime.Now;
+            Memo = memo ?? string.Empty;
+            Timestamp = DateTime.UtcNow;
         }
 
         // Отримуємо дані для підпису транзакції
@@ -40,25 +43,54 @@ namespace BlockChainApp.Models
         // саме ці дані будуть підписані закритим ключем (приватиним ключем)
         public byte[] GetDataSing()
         {
-            string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("o")}";
-           
-            // перетворюємо у масив байтів 
+            // string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("o")}";
+            //string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.Ticks}:{Memo}";
+
+            string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{Memo}";
             return Encoding.UTF8.GetBytes(data);
+            // перетворюємо у масив байтів 
+            
         }
 
 
         //  повертаємо транзакцію у рядок представлення
         // виккорисстовується для зберігання логування та створення хешу
+        //public string ToRawString()
+        //{   
+        //    // перетворюємо підпис у з байтів у HEX - рядок для зручного відображення 
+        //    // якщо підпис відсутній виводимо null
+        //    string hexSignaturer = Signature != null ? BitConverter.ToString(Signature).Replace("-", "") : "null";
+
+        //    // повертаємо повний рядок з усіма полями транзакції 
+        //    return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{Memo}:{hexSignaturer}";
+        //}
+
+        //public string ToRawString()
+        //{
+        //    string hexSignature = Signature != null ? BitConverter.ToString(Signature).Replace("-", "") : "null";
+        //    // Memo в кінці, Timestamp.ToString("O") з великої O !
+
+        //    return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{hexSignature}:{Memo}";
+        //}
+
         public string ToRawString()
-        {   
-            // перетворюємо підпис у з байтів у HEX - рядок для зручного відображення 
-            // якщо підпис відсутній виводимо null
-            string hexSignaturer = Signature != null ? BitConverter.ToString(Signature).Replace("-", "") : "null";
-           
-            // повертаємо повний рядок з усіма полями транзакції 
-            return $"{From}:{To}:{Amount}:{Fee}:{Timestamp}:{hexSignaturer}";
+        {
+            string hexSignature = Signature != null
+                ? BitConverter.ToString(Signature).Replace("-", "")
+                : "null";
+            return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("o")}:{hexSignature}:{Memo}";
         }
 
 
+        public string CalculateHash()
+        {
+            string data = $"{From}{To}{Amount}{Fee}{Timestamp.Ticks}{Memo}";
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(data);
+                byte[] hash = sha256.ComputeHash(bytes);
+                return Convert.ToBase64String(hash);
+            }
+        }
     }
 }

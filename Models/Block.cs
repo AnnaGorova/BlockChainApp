@@ -33,5 +33,7 @@ namespace BlockChainApp.Models
         // властивість для зберігання скаладності майнінгу,
         // яка була використана для майнінгу цього блоку
         public int Difficulty { get; set; } 
+
+        public string MerkleRoot { get; set; }
     }
 }

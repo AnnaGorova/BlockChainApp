@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.Design;
 using System.Linq;
 using System.Runtime.ConstrainedExecution;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -32,9 +33,10 @@ namespace BlockChainApp.Services
 
         private readonly WalletService _walletService = new WalletService();
 
-        
+        private readonly decimal _initialReward = 50;
+        private readonly int _halvingInterval = 3; 
 
-        private readonly int minerReward = 50; // винагорода майнеру за створення блоку
+        //private readonly int minerReward = 50; // винагорода майнеру за створення блоку
 
         private readonly string _storageFilePath = "blockchain_data.dat";
         public Dictionary<string, decimal> Balances { get; set; } = new Dictionary<string, decimal>();
@@ -54,22 +56,72 @@ namespace BlockChainApp.Services
         }
 
         // Метод для створення генезис-блоку 
+        //private void CreateGenesisBlock()
+        //{
+        //    var genesissBlock = new Block(0, new List<Transaction>(), "0", "Admin", 0)
+        //    {
+        //        Timestamp = DateTime.Parse("2024-01-01T01:00:00Z"),
+        //        Nonce = 0,
+        //    };
+
+        //    // Майніннг генезис-блоку для встановлення правильного хешу
+        //    _mainingService.MineBlock(genesissBlock, Difficulty);
+
+        //    Chain.Add(genesissBlock);
+
+        //    this.AppyBlockToState(genesissBlock);
+        //    this.AppendBlockToFile(genesissBlock);
+        //}
+
+        //private void CreateGenesisBlock()
+        //{
+        //    var genesisBlock =
+        //        new Block(
+        //            0,
+        //            new List<Transaction>(),
+        //            "0",
+        //            "",
+        //            0
+        //        );
+
+        //    genesisBlock.Timestamp =
+        //        DateTime.Parse("2024-01-01T00:00:00Z");
+
+        //    genesisBlock.Nonce = 46;
+
+        //    genesisBlock.Hash =
+        //        "0899233226aa3b7669137938714c8375f83e581b2041d23c24712a27b5ee125f";
+
+        //    Chain.Add(genesisBlock);
+        //}
+
+
         private void CreateGenesisBlock()
         {
-            var genesissBlock = new Block(0, new List<Transaction>(), "0", "Admin", 0)
-            {
-                Timestamp = DateTime.Parse("2024-01-01T01:00:00Z"),
-                Nonce = 0,
-            };
-           
-            // Майніннг генезис-блоку для встановлення правильного хешу
-            _mainingService.MineBlock(genesissBlock, Difficulty);
-            
-            Chain.Add(genesissBlock);
-            
-            this.AppyBlockToState(genesissBlock);
-            this.AppendBlockToFile(genesissBlock);
+            var genesisBlock =
+                new Block(
+                    0,
+                    new List<Transaction>(),
+                    "0",
+                    "",
+                    0
+                );
+
+            genesisBlock.Timestamp = DateTime.Parse(
+                "2024-01-01T00:00:00Z",
+                null,
+                System.Globalization.DateTimeStyles.RoundtripKind
+            );
+
+            genesisBlock.Nonce = 46;
+
+            genesisBlock.Hash =
+                _hashingService.ComputeHash(genesisBlock);
+
+            Chain.Add(genesisBlock);
         }
+
+
 
         //Метод для додавання нового блоку до блокчейну
         public void AddBlock(List<Transaction> transactions, string author)
@@ -98,6 +150,12 @@ namespace BlockChainApp.Services
             if (transaction.From != "COINBASE")
             {
                 // перевіряємо підпис транзакції 
+                decimal minFee = transaction.Amount * 0.01m;
+                if (transaction.Fee < minFee)
+                {
+                    Console.WriteLine($"Комісія {transaction.Fee} менша за 1% від суми {transaction.Amount} (мінімум {minFee})");
+                    return false;
+                }
                 bool isValid = _walletService.VeryfiSignature(
                     transaction.GetDataSing(), 
                     transaction.Signature, 
@@ -251,7 +309,7 @@ namespace BlockChainApp.Services
             {
                 From = "COINBASE",
                 To = minerWallet.Address,
-                Amount = minerReward + totalFees,
+                Amount = GetMinerReward() + totalFees,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -299,38 +357,113 @@ namespace BlockChainApp.Services
 
 
 
-        //Метод для перевірки цілісності блокчейну
+        ////Метод для перевірки цілісності блокчейну
+        //public bool isValid(List<Block> chain)
+        //{
+        //    for (int i = 1; i < chain.Count; i++)
+        //    {
+        //        var currentBlock = chain[i];
+
+        //        var previousBlock = chain[i - 1];
+        //        // перевіряємо чи хеш поточного блоку правильний (чи не були змінені дані в блоці)
+        //        if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
+        //            return false;
+        //        // Перевіряємо чи PrevHesh вказує на попередній
+        //        if (currentBlock.PrevHash != previousBlock.Hash)
+        //            return false;
+        //        //Перевірка складності майніннгу
+        //        if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty)))
+        //            return false;
+
+
+        //        string computedMerkleRoot = _hashingService.GetMerkleRoot(currentBlock.Transactions);
+        //        if (currentBlock.MerkleRoot != computedMerkleRoot)
+        //            return false;
+
+        //        foreach (var transaction in currentBlock.Transactions)
+        //        {
+        //            if (transaction.From != "COINBASE")
+        //            {
+        //                bool isValid = _walletService.VeryfiSignature(transaction.GetDataSing(), transaction.Signature, transaction.PublicKey);
+        //                if (!isValid)
+        //                    return false;
+        //            }
+        //        }
+
+        //    }
+        //    Console.WriteLine("Валідний");
+        //    return true;
+        //}
+        //public bool isValid(List<Block> chain)
+        //{
+        //    for (int i = 1; i < chain.Count; i++)
+        //    {
+        //        var currentBlock = chain[i];
+        //        var previousBlock = chain[i - 1];
+
+        //        if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
+        //        {
+        //            Console.WriteLine($"FAIL хеш блок {i}");
+        //            return false;
+        //        }
+
+        //        if (currentBlock.PrevHash != previousBlock.Hash)
+        //        {
+        //            Console.WriteLine($"FAIL prevHash блок {i}");
+        //            return false;
+        //        }
+
+        //        if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty)))
+        //        {
+        //            Console.WriteLine($"FAIL difficulty блок {i}");
+        //            return false;
+        //        }
+        //    }
+        //    Console.WriteLine("Валідний");
+        //    return true;
+        //}
+
+
         public bool isValid(List<Block> chain)
         {
             for (int i = 1; i < chain.Count; i++)
             {
                 var currentBlock = chain[i];
-
                 var previousBlock = chain[i - 1];
-                // перевіряємо чи хеш поточного блоку правильний (чи не були змінені дані в блоці)
-                if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
-                    return false;
-                // Перевіряємо чи PrevHesh вказує на попередній
-                if (currentBlock.PrevHash != previousBlock.Hash)
-                    return false;
-                //Перевірка складності майніннгу
-                if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty)))
-                    return false;
 
-                foreach (var transaction in currentBlock.Transactions)
+                // Обчислюємо хеш
+                string computedHash = _hashingService.ComputeHash(currentBlock);
+
+                if (currentBlock.Hash != computedHash)
                 {
-                    if (transaction.From != "COINBASE")
-                    {
-                        bool isValid = _walletService.VeryfiSignature(transaction.GetDataSing(), transaction.Signature, transaction.PublicKey);
-                        if (!isValid)
-                            return false;
-                    }
+                    Console.WriteLine($"FAIL хеш блок {i}");
+                    Console.WriteLine($"  Отриманий хеш: {currentBlock.Hash}");
+                    Console.WriteLine($"  Обчислений:    {computedHash}");
+                    Console.WriteLine($"  Timestamp: {currentBlock.Timestamp.ToString("o")}");
+                    Console.WriteLine($"  Nonce: {currentBlock.Nonce}");
+                    Console.WriteLine($"  PrevHash: {currentBlock.PrevHash}");
+                    Console.WriteLine($"  Author: {currentBlock.Author}");
+                    return false;
                 }
 
+                if (currentBlock.PrevHash != previousBlock.Hash)
+                {
+                    Console.WriteLine($"FAIL prevHash блок {i}");
+                    return false;
+                }
+
+                if (!currentBlock.Hash.StartsWith(new string('0', currentBlock.Difficulty)))
+                {
+                    Console.WriteLine($"FAIL difficulty блок {i}");
+                    return false;
+                }
             }
             Console.WriteLine("Валідний");
             return true;
         }
+
+
+
 
 
         public decimal GetBalance(string address)
@@ -623,5 +756,15 @@ namespace BlockChainApp.Services
             }
             return null;
         }
+
+
+
+        private decimal GetMinerReward()
+        {
+            int halvings = Chain.Count / _halvingInterval;
+            decimal currentReward = _initialReward / (decimal)Math.Pow(2, halvings);
+            return currentReward < 1 ? 0 : currentReward;
+        }
+
     }
 }

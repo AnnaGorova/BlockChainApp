@@ -19,11 +19,12 @@ namespace BlockChainApp.Services
         }
 
         //Створення тре=анзакції 
-        public Transaction CreateTransaction(Wallet wallet, string to, decimal amountn, decimal fee)
+        public Transaction CreateTransaction(Wallet wallet, string to, decimal amountn, decimal fee, string memo = null)
         {
             // створюємо транзакцію
-            var transaction = new Transaction(wallet.Address, to, amountn, fee, wallet.PublicKey);
-            
+            var transaction = new Transaction(wallet.Address, to, amountn, fee, wallet.PublicKey, memo);
+            transaction.Memo = memo;
+
             // отримуємо дані для підпису (БФЙТИБ, не хеш !!!)
             byte[] dateToSing = transaction.GetDataSing();
 

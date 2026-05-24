@@ -22,82 +22,82 @@ namespace BlockChainApp
             var walletService = new WalletService();
             var transactionService = new TransactionService(walletService);
 
-            var originalChain = new BlockChain(1);
+            //var originalChain = new BlockChain(1);
 
-            var alice = walletService.CreateWallet("Alice");
-            var hacker = walletService.CreateWallet("Hacker");
-
-
-            originalChain.AddTransaction(new Transaction
-            {
-                From = "COINBASE",
-                To = alice.Address,
-                Amount = 100,
-                Fee = 0,
-                Timestamp = DateTime.UtcNow
-            });
-            originalChain.MinePendingTransaction(alice, 10);
-
-            var legalTx = transactionService.CreateTransaction(alice, hacker.Address, 5, 0.1m);
-            originalChain.AddTransaction(legalTx);
-            originalChain.MinePendingTransaction(alice, 10);
-
-            Console.WriteLine($"Баланс Аліси до злому: {originalChain.GetBalance(alice.Address)}");
-            Console.WriteLine($"Баланс Хакера до злому: {originalChain.GetBalance(hacker.Address)}");
-            Console.WriteLine($"Файл збережено:{storageFile}");
+            //var alice = walletService.CreateWallet("Alice");
+            //var hacker = walletService.CreateWallet("Hacker");
 
 
+            //originalChain.AddTransaction(new Transaction
+            //{
+            //    From = "COINBASE",
+            //    To = alice.Address,
+            //    Amount = 100,
+            //    Fee = 0,
+            //    Timestamp = DateTime.UtcNow
+            //});
+            //originalChain.MinePendingTransaction(alice, 10);
 
-            string fileContent = File.ReadAllText(storageFile);
+            //var legalTx = transactionService.CreateTransaction(alice, hacker.Address, 5, 0.1m);
+            //originalChain.AddTransaction(legalTx);
+            //originalChain.MinePendingTransaction(alice, 10);
 
-            string originalAmount = "\"Amount\":5";
-            string fakeAmount = "\"Amount\":50000";
-
-            if (fileContent.Contains(originalAmount))
-            {
-                fileContent = fileContent.Replace(originalAmount, fakeAmount);
-                Console.WriteLine($"Злом - знайдено транзакцію {originalAmount} та змінено на {fakeAmount}");
-            }
-            else
-            {
-                Console.WriteLine($"Не знайдено транзакцію з {originalAmount}");
-            }
-
-            File.WriteAllText(storageFile, fileContent);
-            Console.WriteLine($"Файл {storageFile} скомпроментовано!");
-
-            Console.WriteLine($"Перезапуск ноди...");
-
-            var newChain = new BlockChain(1);
-            newChain.LoadChainFromFile();
-
-            // Перевірка 1 (Реакція системи): Зробіть скріншот консолі,
-            // де видно, що під час ініціалізації нового об'єкта BlockChain
-            // спрацював ваш захист і вивів червоне повідомлення про
-            // компрометацію.
-            Console.WriteLine("Перевірка 1 (Реакція системи) - повідомлення червоним вище");
+            //Console.WriteLine($"Баланс Аліси до злому: {originalChain.GetBalance(alice.Address)}");
+            //Console.WriteLine($"Баланс Хакера до злому: {originalChain.GetBalance(hacker.Address)}");
+            //Console.WriteLine($"Файл збережено:{storageFile}");
 
 
-            // Перевірка 2 (Ізоляція вірусу): Виведіть довжину ланцюга
-            // відновленої мережі newBlockChain.Chain.Count.
-            // Очікується: 0 (або 1, якщо ваш конструктор одразу перестворив
-            // чистий Генезис).
-            Console.WriteLine("Перевірка 2 (Ізоляція вірусу");
-            Console.WriteLine($"Довжина ланцюга після злому: {newChain.Chain.Count} - очікується 0");
-            Console.WriteLine(newChain.Chain.Count == 0
-                ? "Перевірку пройддено - очікується 0"
-                : "НЕ ПРОЙДЕНО");
+
+            //string fileContent = File.ReadAllText(storageFile);
+
+            //string originalAmount = "\"Amount\":5";
+            //string fakeAmount = "\"Amount\":50000";
+
+            //if (fileContent.Contains(originalAmount))
+            //{
+            //    fileContent = fileContent.Replace(originalAmount, fakeAmount);
+            //    Console.WriteLine($"Злом - знайдено транзакцію {originalAmount} та змінено на {fakeAmount}");
+            //}
+            //else
+            //{
+            //    Console.WriteLine($"Не знайдено транзакцію з {originalAmount}");
+            //}
+
+            //File.WriteAllText(storageFile, fileContent);
+            //Console.WriteLine($"Файл {storageFile} скомпроментовано!");
+
+            //Console.WriteLine($"Перезапуск ноди...");
+
+            //var newChain = new BlockChain(1);
+            //newChain.LoadChainFromFile();
+
+            //// Перевірка 1 (Реакція системи): Зробіть скріншот консолі,
+            //// де видно, що під час ініціалізації нового об'єкта BlockChain
+            //// спрацював ваш захист і вивів червоне повідомлення про
+            //// компрометацію.
+            //Console.WriteLine("Перевірка 1 (Реакція системи) - повідомлення червоним вище");
 
 
-            // Перевірка 3 (Блокування фінансів): Виведіть баланс Хакера
-            // в новій мережі: newBlockChain.GetBalance(Hacker.Address).
-            // Очікується: 0 (підроблені 50000 монет не були завантажені).
-            Console.WriteLine("Перевірка 3 (Блокування фінансів)");
-            decimal hackerBalance = newChain.GetBalance(hacker.Address);
-            Console.WriteLine($"Баланс Хакера після злому: {hackerBalance} - очікується 0");
-            Console.WriteLine(hackerBalance == 0
-                ? "Пройдено перевірку - підроблені кошти відхилено"
-                : "Перевірку не пройдено");
+            //// Перевірка 2 (Ізоляція вірусу): Виведіть довжину ланцюга
+            //// відновленої мережі newBlockChain.Chain.Count.
+            //// Очікується: 0 (або 1, якщо ваш конструктор одразу перестворив
+            //// чистий Генезис).
+            //Console.WriteLine("Перевірка 2 (Ізоляція вірусу");
+            //Console.WriteLine($"Довжина ланцюга після злому: {newChain.Chain.Count} - очікується 0");
+            //Console.WriteLine(newChain.Chain.Count == 0
+            //    ? "Перевірку пройддено - очікується 0"
+            //    : "НЕ ПРОЙДЕНО");
+
+
+            //// Перевірка 3 (Блокування фінансів): Виведіть баланс Хакера
+            //// в новій мережі: newBlockChain.GetBalance(Hacker.Address).
+            //// Очікується: 0 (підроблені 50000 монет не були завантажені).
+            //Console.WriteLine("Перевірка 3 (Блокування фінансів)");
+            //decimal hackerBalance = newChain.GetBalance(hacker.Address);
+            //Console.WriteLine($"Баланс Хакера після злому: {hackerBalance} - очікується 0");
+            //Console.WriteLine(hackerBalance == 0
+            //    ? "Пройдено перевірку - підроблені кошти відхилено"
+            //    : "Перевірку не пройдено");
 
 
 
@@ -266,55 +266,56 @@ namespace BlockChainApp
 
 
 
-            //var blockChain = new BlockChain(1);
-            //var transactionService = new TransactionService(walletService);
+            var blockChain = new BlockChain(1);
+            // var transactionService = new TransactionService(walletService);
 
-            //var p2pService = new P2RService(blockChain);
-            //var displayService = new BlockChainDisplayService();
-            //var hashingService = new HashingService();
-
-
+            var p2pService = new P2RService(blockChain);
+            var displayService = new BlockChainDisplayService();
+            var hashingService = new HashingService();
 
 
 
-            ////var alice = walletService.CreateWallet("Alice");
-            ////var miner = walletService.CreateWallet("Bob");
-            //////var myWallet = walletService.CreateWallet("Vlad");
 
-            //var aliceWallet = walletService.CreateWallet("Alice");
+
+            //var alice = walletService.CreateWallet("Alice");
+            //var miner = walletService.CreateWallet("Bob");
+            ////var myWallet = walletService.CreateWallet("Vlad");
+
+            var aliceWallet = walletService.CreateWallet("Alice");
             //var hackerWallet = walletService.CreateWallet("Hacker");
-            //var bobeWallet = walletService.CreateWallet("Bob");
-            //var myWallet = walletService.CreateWallet("Vlad");
-            ////var minerWallet = walletService.CreateWallet("Miner");
+            var bobeWallet = walletService.CreateWallet("Bob");
+            var myWallet = walletService.CreateWallet("Vlad");
+            //var minerWallet = walletService.CreateWallet("Miner");
 
 
 
-            //// Майнинг початкового блоку для отримання нагороди
-            //blockChain.MinePendingTransaction (aliceWallet, 10);
-            //blockChain.MinePendingTransaction(aliceWallet, 10);
+            // Майнинг початкового блоку для отримання нагороди
+            blockChain.MinePendingTransaction(aliceWallet, 10);
+            blockChain.MinePendingTransaction(aliceWallet, 10);
 
-            //// Перевірка балансу після майнингу
-            //Console.WriteLine($"Alice wallet balance: {blockChain.GetBalance(aliceWallet.Address)}");
-            //Console.WriteLine($"Hacker wallet balance: {blockChain.GetBalance(hackerWallet.Address)}");
+            // Перевірка балансу після майнингу
+            Console.WriteLine($"Alice wallet balance: {blockChain.GetBalance(aliceWallet.Address)}");
+            // Console.WriteLine($"Hacker wallet balance: {blockChain.GetBalance(hackerWallet.Address)}");
+            Console.WriteLine($"Bob wallet balance: {blockChain.GetBalance(bobeWallet.Address)}");
 
-            //// Створення транзакцій з різними комісіями
-            ////var transaction1 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 4, 1.01m);
-            ////var transaction2 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 2, 0.8m);
-            ////var transaction3 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 9, 2.0m);
+            // Створення транзакцій з різними комісіями
+            var transaction1 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 4, 1.01m);
+            var transaction2 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 2, 0.8m);
+            var transaction3 = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, 9, 2.0m);
             //var transaction1 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 5, 1.0m);
             //var transaction2 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 10, 1.0m);
             //var transaction3 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 15, 1.0m);
             //var transaction4 = transactionService.CreateTransaction(aliceWallet, hackerWallet.Address, 20, 1.0m);
 
 
-            //// Додавання транзакцій до блокчейну
-            //blockChain.AddTransaction(transaction1);
-            //blockChain.AddTransaction(transaction2);
-            //blockChain.AddTransaction(transaction3);
+            // Додавання транзакцій до блокчейну
+            blockChain.AddTransaction(transaction1);
+            blockChain.AddTransaction(transaction2);
+            blockChain.AddTransaction(transaction3);
             //blockChain.AddTransaction(transaction4);
 
-            //// Майнинг блоку для обробки транзакцій
-            ////blockChain.MinePendingTransaction(bobeWallet, 5);
+            // Майнинг блоку для обробки транзакцій
+            blockChain.MinePendingTransaction(bobeWallet, 5);
             //blockChain.MinePendingTransaction(aliceWallet, 10);
 
             //var lastBlock = blockChain.Chain.Last();
@@ -391,8 +392,8 @@ namespace BlockChainApp
 
             //displayService.printBlockChain(blockChain.Chain);
 
-           
-           
+
+
 
 
 
@@ -650,85 +651,96 @@ namespace BlockChainApp
 
 
 
-            //p2pService.StartServer(port);
+            p2pService.StartServer(port);
 
-            //if (args.Length > 1)
-            //{
-            //    int peerPort = int.Parse(args[1]);
-            //    p2pService.ConnectToPeer("127.0.0.1", peerPort);
-            //}
-
-
-            //while (true)
-            //{
-            //    Console.WriteLine($"Нода порт {port}");
-            //    Console.WriteLine($"==============================");
-            //    Console.WriteLine($"1. Створити транзакцію");
-            //    Console.WriteLine($"2. Майнити блок");
-            //    Console.WriteLine($"3. Показати блокчейн");
-            //    Console.WriteLine($"4. Підключитися до іншої ноди вручну");
-            //    Console.WriteLine($"5. Перевірти валідацію блокчейну");
-            //    Console.WriteLine($"Оберіть дію:");
-
-            //    string choice = Console.ReadLine();
-
-            //    switch (choice)
-            //    {
-            //        case "1":
-            //            Console.WriteLine("Введіть суму: ");
-            //            if (decimal.TryParse(Console.ReadLine(), out decimal amount))
-            //            {
-            //                var transaction = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, amount, 0.01m);
-            //                if (blockChain.AddTransaction(transaction))
-            //                {
-            //                    Console.WriteLine("Транзакція додана до черги.");
-            //                    p2pService.BroadCast(MessageType.BroadcastTransaction, transaction);
-            //                }
-            //                else
-            //                {
-            //                    Console.WriteLine("Помилка при додаванні транзакції.");
-            //                }
+            if (args.Length > 1)
+            {
+                int peerPort = int.Parse(args[1]);
+                p2pService.ConnectToPeer("127.0.0.1", peerPort);
+            }
 
 
-            //            }
-            //            else
-            //            {
-            //                Console.WriteLine("Невірна сума.");
-            //            }
-            //            break;
+            while (true)
+            {
+                Console.WriteLine($"Нода порт {port}");
+                Console.WriteLine($"==============================");
+                Console.WriteLine($"1. Створити транзакцію");
+                Console.WriteLine($"2. Майнити блок");
+                Console.WriteLine($"3. Показати блокчейн");
+                Console.WriteLine($"4. Підключитися до іншої ноди вручну");
+                Console.WriteLine($"5. Перевірти валідацію блокчейну");
+                Console.WriteLine($"Оберіть дію:");
 
-            //        case "2":
-            //            Console.WriteLine("Майнінг блоку ...");
-            //            blockChain.MinePendingTransaction(aliceWallet, 5);
-            //            var latestBlock = blockChain.Chain.Last();
-            //            p2pService.BroadCast(MessageType.BroadcastBlock, latestBlock);
-            //            break;
+                string choice = Console.ReadLine();
 
-            //        case "3":
-            //            displayService.printBlockChain(blockChain.Chain);
-            //            break;
+                switch (choice)
+                {
+                    case "1":
+                        Console.WriteLine("Введіть суму: ");
+                        
+                        if (decimal.TryParse(Console.ReadLine(), out decimal amount))
+                        {
+                            Console.WriteLine("Введіть комісію (мінімум 1% від суми): ");
+                            decimal.TryParse(Console.ReadLine(), out decimal fee);
 
-            //        case "4":
-            //            Console.WriteLine("Введіть порт іншої ноди: ");
-            //            if (int.TryParse(Console.ReadLine(), out int peerPort))
-            //            {
-            //                p2pService.ConnectToPeer("127.0.0.1", peerPort);
-            //            }
-            //            break;
+                            Console.WriteLine("Введіть повідомлення (Memo): ");
+                            string memo = Console.ReadLine();
 
-            //        case "5":
-            //            //bool
-            //            isValid = blockChain.isValid(blockChain.Chain);
 
-            //            Console.WriteLine(isValid ? "Блокчейн валідний." : "Блокчейн не валідний!");
+                            var transaction = transactionService.CreateTransaction(aliceWallet, bobeWallet.Address, amount, fee, memo);
+                            
+                            if (blockChain.AddTransaction(transaction))
+                            {
+                                Console.WriteLine("Транзакція додана до черги.");
+                                p2pService.BroadCast(MessageType.BroadcastTransaction, transaction);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Помилка при додаванні транзакції.");
+                            }
 
-            //            break;
-            //    }
-            //}
 
-           
+                        }
+                        else
+                        {
+                            Console.WriteLine("Невірна сума.");
+                        }
+                        break;
 
-            //displayService.printBlockChain(blockChain.Chain);
+                    case "2":
+                        Console.WriteLine("Майнінг блоку ...");
+                        blockChain.MinePendingTransaction(aliceWallet, 5);
+                        var latestBlock = blockChain.Chain.Last();
+                        p2pService.BroadCast(MessageType.BroadcastBlock, latestBlock);
+                        break;
+
+                    case "3":
+                        displayService.printBlockChain(blockChain.Chain);
+                        break;
+
+                    case "4":
+                        Console.WriteLine("Введіть IP адресу (наприклад, 127.0.0.1): ");
+                        string ip = Console.ReadLine();
+                        Console.WriteLine("Введіть порт іншої ноди: ");
+                        if (int.TryParse(Console.ReadLine(), out int peerPort))
+                        {
+                            p2pService.ConnectToPeer(ip, peerPort);
+                        }
+                        break;
+
+                    case "5":
+                        //bool
+                        bool isValid = blockChain.isValid(blockChain.Chain);
+
+                        Console.WriteLine(isValid ? "Блокчейн валідний." : "Блокчейн не валідний!");
+
+                        break;
+                }
+            }
+
+
+
+            displayService.printBlockChain(blockChain.Chain);
 
 
 

@@ -9,28 +9,50 @@ namespace BlockChainApp.Services
 {
     public class HashingService
     {
-       public string ComputeHash(Block block)
-       {
-            var transactionData = "";
+        //public string ComputeHash(Block block)
+        //{
+        //    string transactionsData = "";
+        //    foreach (var transaction in block.Transactions)
+        //    {
+        //        transactionsData += transaction.ToRawString();
+        //    }
 
-            //foreach (var transaction in block.Transactions)
-            //{
-            //    transactionData += transaction.ToRawString();
-            //}
+        //    string blockData = $"{block.Index}{block.Timestamp.ToString("o")}{transactionsData}{block.PrevHash}{block.Nonce}{block.Difficulty}";
 
-            string blockData = $"{block.Index}{block.Timestamp.ToString("o")}{transactionData}{block.PrevHash}{block.Nonce}{block.Author}";
-            using (var sha256 = System.Security.Cryptography.SHA256.Create())
-            {
-                byte[] inputBytes = Encoding.UTF8.GetBytes(blockData);
-                byte[] hashBytes = sha256.ComputeHash(inputBytes);
-                return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-            }
+        //    using (var sha256 = System.Security.Cryptography.SHA256.Create())
+        //    {
+        //        byte[] inputBytes = Encoding.UTF8.GetBytes(blockData);
+        //        byte[] hashBytes = sha256.ComputeHash(inputBytes);
+        //        return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        //    }
+        //}
+        public string ComputeHash(Block block)
+        {
+            string transactionsData = string.Join(
+                "",
+                block.Transactions.Select(tx => tx.ToRawString())
+            );
 
-            
+            string blockData =
+                $"{block.Index}|" +
+                $"{block.Timestamp.ToUniversalTime():O}|" +
+                $"{transactionsData}|" +
+                $"{block.PrevHash}|" +
+                $"{block.Nonce}|" +
+                $"{block.Difficulty}";
+
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+
+            byte[] inputBytes = Encoding.UTF8.GetBytes(blockData);
+            byte[] hashBytes = sha256.ComputeHash(inputBytes);
+
+            return Convert.ToHexString(hashBytes).ToLower();
         }
+
 
         public string ComputerSHA256(string rowData)
         {
+           
             using (var sha256 = System.Security.Cryptography.SHA256.Create())
             {
                 byte[] inputBytes = Encoding.UTF8.GetBytes(rowData);
@@ -55,10 +77,10 @@ namespace BlockChainApp.Services
                     newLewel.Add(ComputerSHA256(left + right));
                 }
 
-                if (merkleLeaves.Count%2 != 0)
-                {
-                    newLewel.Add(merkleLeaves.Last());
-                }
+                //if (merkleLeaves.Count%2 != 0)
+                //{
+                //    newLewel.Add(merkleLeaves.Last());
+                //}
 
                 merkleLeaves = newLewel;
             }
