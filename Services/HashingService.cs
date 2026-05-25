@@ -26,30 +26,28 @@ namespace BlockChainApp.Services
         //        return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         //    }
         //}
+
+        //   //виправлено помилку 
         public string ComputeHash(Block block)
         {
-            string transactionsData = string.Join(
-                "",
-                block.Transactions.Select(tx => tx.ToRawString())
-            );
+            var transactionsData = "";
+
+            foreach (var transaction in block.Transactions)
+            {
+                transactionsData += transaction.ToRawString();
+            }
 
             string blockData =
-                $"{block.Index}|" +
-                $"{block.Timestamp.ToUniversalTime():O}|" +
-                $"{transactionsData}|" +
-                $"{block.PrevHash}|" +
-                $"{block.Nonce}|" +
-                $"{block.Difficulty}";
+                $"{block.Index}{block.Timestamp.ToString("O")}{transactionsData}{block.PrevHash}{block.Nonce}";
 
             using var sha256 = System.Security.Cryptography.SHA256.Create();
-
             byte[] inputBytes = Encoding.UTF8.GetBytes(blockData);
             byte[] hashBytes = sha256.ComputeHash(inputBytes);
 
-            return Convert.ToHexString(hashBytes).ToLower();
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         }
-
-
+        
+      
         public string ComputerSHA256(string rowData)
         {
            

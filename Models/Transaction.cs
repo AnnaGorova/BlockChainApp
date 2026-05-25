@@ -49,7 +49,7 @@ namespace BlockChainApp.Models
             string data = $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{Memo}";
             return Encoding.UTF8.GetBytes(data);
             // перетворюємо у масив байтів 
-            
+
         }
 
 
@@ -78,7 +78,8 @@ namespace BlockChainApp.Models
             string hexSignature = Signature != null
                 ? BitConverter.ToString(Signature).Replace("-", "")
                 : "null";
-            return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("o")}:{hexSignature}:{Memo}";
+
+            return $"{From}:{To}:{Amount}:{Fee}:{Timestamp.ToString("O")}:{hexSignature}:{Memo}";
         }
 
 
